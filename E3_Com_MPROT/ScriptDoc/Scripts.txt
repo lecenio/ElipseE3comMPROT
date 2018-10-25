@@ -1,0 +1,77 @@
+-----------------------
+Documentação de Scripts
+-----------------------
+Domínio: E3_Com_MPROT
+10/25/18 14:55:52
+-----------------------
+
+<Dados1200.DataHoraCLP:DataHoraCLP_OnValueChange()>
+Sub DataHoraCLP_OnValueChange()
+	'Escreve o valor nas tags do CLP se data e hora for válida
+	IF IsDate(Value) AND Parent.Item("DataHoraCLP_InibeScript").Value = FALSE THEN
+		DIM ano1
+		DIM ano2
+		DIM milisegundo1
+		DIM milisegundo2
+		
+		ano2 = (YEAR(Value) And &HFF&) 'Byte mais signficativo - Se fosse converter DWord para Word seria  And &HFFFF&
+		ano1 = (YEAR(Value) \ 256)     'Byte menos significativo - Se fosse converter DWord para Word seria \ 65536
+		
+		milisegundo2 = 0 'Infelizmente sempre considera 0 como milisegundos
+		milisegundo1 = 0 'Infelizmente sempre considera 0 como milisegundos
+		
+		'Escrita em bloco conforme KB da Elipse
+		'http://kb.elipse.com.br/pt-br/questions/676/KB-28855%3A+Enviando+m%C3%BAltiplos+valores+de+uma+s%C3%B3+vez+para+um+bloco+de+comunica%C3%A7%C3%A3o.
+	
+		Application.GetObject("MProt1200.DataHora").AllowWrite = FALSE 'Garante via Script que foi desativado conforme KB
+		
+		Application.GetObject("MProt1200.DataHora").AllowRead = FALSE 'Desativado conforme KB
+		
+		Application.GetObject("MProt1200.DataHora.Ano_Byte1").Value = ano1
+		Application.GetObject("MProt1200.DataHora.Ano_Byte2").Value = ano2
+		Application.GetObject("MProt1200.DataHora.Mes").Value = Month(Value)
+		Application.GetObject("MProt1200.DataHora.Dia").Value = Day(Value)
+		Application.GetObject("MProt1200.DataHora.Hora").Value = Hour(Value)
+		Application.GetObject("MProt1200.DataHora.Minuto").Value = Minute(Value)
+		Application.GetObject("MProt1200.DataHora.Segundo").Value = Second(Value)
+		Application.GetObject("MProt1200.DataHora.MiliSegundo_Byte1").Value = milisegundo1
+		Application.GetObject("MProt1200.DataHora.MiliSegundo_Byte2").Value = milisegundo2
+		
+		Resultado = Application.GetObject("MProt1200.DataHora").Write(1) ' Realiza a Escrita
+		
+		Application.Trace "O RESULTADO DA ESCRITA  = " & Resultado 'Apenas Log
+		
+		Application.GetObject("MProt1200.DataHora").AllowRead = True 'Reativa a leitura
+	END IF
+End Sub
+
+
+
+<MProt1200.DataHora:DataHora_OnRead()>
+Sub DataHora_OnRead()
+	'A cada leitura, recalcula a data e hora do CLP
+	DIM ano
+	DIM milisegundo
+	
+	'Cálculo do ano
+	ano = ((Item("Ano_Byte1").Value * 256) + Item("Ano_Byte2").Value) 'Se fosse união de Words então seria * por 65536
+	
+	'Cálculo dos milisegundos
+	milisegundo = ((Item("Milisegundo_Byte2").Value * 256) + Item("Milisegundo_Byte1").Value) 'Se fosse união de Words então seria * por 65536
+	
+	'Inibe o script de mudança de valor dentro do tag Dados1200.DataHoraCLP_InibeScript
+	Application.GetObject("Dados1200.DataHoraCLP_InibeScript").Value = TRUE
+	
+	'Registra no log apenas para fins de depuração
+	Application.TrackEvent "Cálculo da Data e Hora do CLP -> " & ano & "-" & Item("Mes").Value & "-" & Item("Dia").Value & " " & Item("Hora").Value & ":" & Item("Minuto").Value & ":" & Item("Segundo").Value
+	
+	'Calcula a Data e Hora a partir dos elementos dos blocos
+	Application.GetObject("Dados1200.DataHoraCLP").Value = CDate(ano & "-" & Item("Mes").Value & "-" & Item("Dia").Value & " " & Item("Hora").Value & ":" & Item("Minuto").Value & ":" & Item("Segundo").Value)
+		
+	'Reabilita o script de mudança de valor dentro do tag Dados1200.DataHoraCLP_InibeScript
+	Application.GetObject("Dados1200.DataHoraCLP_InibeScript").Value = FALSE
+			
+End Sub
+
+
+
